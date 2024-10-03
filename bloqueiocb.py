@@ -30,7 +30,7 @@ def criar_arquivo_bloqueio():
             for dominio in sites_file:
                 dominio = dominio.strip()  # Remove espaços ou quebras de linha
                 conf_file.write(f'local-zone: "{dominio}" redirect\n')
-                conf_file.write(f'local-data: "{dominio} A 10.10.10.10"\n')
+                conf_file.write(f'local-data: "{dominio} A 127.0.0.1"\n')
                 conf_file.write(f'local-data: "{dominio} AAAA ::1"\n')
                 conf_file.write("\n")
     print(f"Arquivo de configuração criado: {arquivo_config}")
@@ -98,6 +98,24 @@ def configurar_apache():
         # Reiniciar o Apache para aplicar as mudanças
         executar_comando("systemctl restart apache2")
         print("DocumentRoot atualizado para /var/www/bloqueadonobrasil.")
+
+def adicionar_crontab():
+    """Adiciona uma entrada no crontab para executar o script de minuto em minuto."""
+    cron_job = "0 0 * * * cd /etc/unbound && /usr/bin/python3 bloqueiocb.py"
+    
+    # Verifica se a tarefa já existe no crontab
+    try:
+        crontab_result = subprocess.run("crontab -l", shell=True, check=True, capture_output=True, text=True)
+        if cron_job not in crontab_result.stdout:
+            # Adiciona a nova entrada no crontab
+            executar_comando(f'(crontab -l ; echo "{cron_job}") | crontab -')
+            print("Tarefa adicionada ao crontab com sucesso.")
+        else:
+            print("A tarefa já existe no crontab.")
+    except subprocess.CalledProcessError:
+        # Se o crontab não existe ainda, cria-o
+        executar_comando(f'echo "{cron_job}" | crontab -')
+        print("Crontab criado e tarefa adicionada com sucesso.")
 
 if __name__ == "__main__":
     # Criar o diretório se ele não existir
