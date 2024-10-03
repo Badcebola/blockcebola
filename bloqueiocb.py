@@ -1,12 +1,3 @@
-
-update e upgrade 
-wget
-python3 
-
-
-
-
-
 import os
 import subprocess
 
