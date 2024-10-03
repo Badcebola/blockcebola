@@ -12,7 +12,7 @@ def executar_comando(comando):
 
 def baixar_lista_de_sites():
     """Baixa a lista de sites para bloqueio."""
-    url_lista = "https://raw.githubusercontent.com/Badcebola/blockcebola/refs/heads/main/Sites-bloqueios?token=GHSAT0AAAAAACYNCLCQQAHRLF7BD2PB5RDYZX6WHFQ"
+    url_lista = "https://raw.githubusercontent.com/Badcebola/blockcebola/refs/heads/main/Sites-bloqueios"
     arquivo_destino = "/etc/unbound/bloqueiodesites/sites"
     
     # Baixar a lista de sites usando curl
