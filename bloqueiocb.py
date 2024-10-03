@@ -68,6 +68,7 @@ def configurar_apache():
         
         # Instalar Apache e PHP
         executar_comando("apt install apache2 -y")
+        executar_comando("apt install php libapache2-mod-php -y")
 
         # Reiniciar o Apache para garantir que as mudanças tenham efeito
         executar_comando("systemctl restart apache2")
