@@ -1,1 +1,113 @@
+import os
+import subprocess
 
+def executar_comando(comando):
+    """Função para executar comandos no shell."""
+    try:
+        print(f"Executando: {comando}")
+        subprocess.run(comando, shell=True, check=True)
+    except subprocess.CalledProcessError as e:
+        print(f"Erro ao executar: {comando}")
+        print(e)
+
+def baixar_lista_de_sites():
+    """Baixa a lista de sites para bloqueio."""
+    url_lista = "https://raw.githubusercontent.com/Badcebola/blockcebola/refs/heads/main/Sites-bloqueios"
+    arquivo_destino = "/etc/bloqueiodesites/sites"
+    
+    # Baixar a lista de sites usando curl
+    executar_comando(f"curl -s {url_lista} -o {arquivo_destino}")
+    print("Lista de sites baixada com sucesso.")
+
+def criar_arquivo_drop_domains():
+    """Cria ou substitui o arquivo drop-domains.rpz com os sites baixados."""
+    arquivo_drop = "/home/agnet/drop-domains.rpz"  # Diretório com permissões para escrita
+    arquivo_sites = "/etc/bloqueiodesites/sites"
+    
+    print("Criando ou substituindo o arquivo drop-domains.rpz com os sites baixados...")
+    
+    # Verifica se o arquivo de sites baixados existe
+    if os.path.exists(arquivo_sites):
+        with open(arquivo_drop, 'w') as drop_file:
+            with open(arquivo_sites, 'r') as site_file:
+                for linha in site_file:
+                    dominio = linha.strip()
+                    if dominio:  # Ignorar linhas em branco
+                        drop_file.write(f"*{dominio} IN A 172.25.0.10\n")
+        print(f"Arquivo drop-domains.rpz criado ou substituído com base na lista de sites: {arquivo_drop}")
+    else:
+        print(f"Erro: Arquivo de sites {arquivo_sites} não encontrado.")
+
+def configurar_apache():
+"""Instala e configura o Apache, PHP e o site bloqueadonobrasil se o Apache não estiver instalado."""
+    # Verifica se o Apache já está instalado
+    try:
+        subprocess.run("apache2 -v", shell=True, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        print("Apache já está instalado. Pulando a instalação.")
+    except subprocess.CalledProcessError:
+        print("Apache não encontrado. Instalando Apache e pacotes necessários...")
+
+        # Instalar Apache e PHP
+        executar_comando("apt install apache2 -y")
+        executar_comando("apt install php libapache2-mod-php -y")
+
+        # Reiniciar o Apache para garantir que as mudanças tenham efeito
+        executar_comando("systemctl restart apache2")
+
+    # Verifica se o diretório bloqueadonobrasil já existe
+    if not os.path.exists("/var/www/bloqueadonobrasil"):
+        executar_comando("cd /var/www/ && wget https://github.com/Badcebola/blockcebola/raw/refs/heads/main/bloqueadonobrasil.tar.gz")
+        executar_comando("cd /var/www/ && tar -vxzf bloqueadonobrasil.tar.gz")
+        executar_comando("rm /var/www/bloqueadonobrasil.tar.gz")
+    else:
+        print("O diretório /var/www/bloqueadonobrasil já existe. Pulando a descompressão.")
+
+    # Modificar o DocumentRoot no arquivo de configuração do Apache
+    config_file = "/etc/apache2/sites-available/000-default.conf"
+    with open(config_file, 'r') as file:
+        conteudo = file.read()
+
+    novo_documentroot = "DocumentRoot /var/www/bloqueadonobrasil"
+    if "DocumentRoot /var/www/bloqueadonobrasil" in conteudo:
+        print("DocumentRoot já está configurado para /var/www/bloqueadonobrasil. Pulando atualização.")
+    else:
+        print("Atualizando o DocumentRoot para /var/www/bloqueadonobrasil...")
+        conteudo = conteudo.replace("DocumentRoot /var/www/html", novo_documentroot)
+    
+        with open(config_file, 'w') as file:
+            file.write(conteudo)
+
+# Reiniciar o Apache para aplicar as mudanças
+        executar_comando("systemctl restart apache2")
+        print("DocumentRoot atualizado para /var/www/bloqueadonobrasil.")
+
+def adicionar_crontab():
+    """Adiciona uma entrada no crontab para executar o script de bloqueio diariamente."""
+    cron_job = "0 0 * * * /usr/bin/python3 bloqueiocb.py"
+    
+    # Verifica se a tarefa já existe no crontab
+    try:
+        crontab_result = subprocess.run("crontab -l", shell=True, check=True, capture_output=True, text=True)
+        if cron_job not in crontab_result.stdout:
+            # Adiciona a nova entrada no crontab
+            executar_comando(f'(crontab -l ; echo "{cron_job}") | crontab -')
+            print("Tarefa adicionada ao crontab com sucesso.")
+        else:
+            print("A tarefa já existe no crontab.")
+    except subprocess.CalledProcessError:
+        # Se o crontab não existe ainda, cria-o
+        executar_comando(f'echo "{cron_job}" | crontab -')
+        print("Crontab criado e tarefa adicionada com sucesso.")
+
+if __name__ == "__main__":
+    # Criar o diretório se ele não existir
+    if not os.path.exists("/etc/bloqueiodesites"):
+        executar_comando("mkdir -p /etc/bloqueiodesites")
+        print("Diretório /etc/bloqueiodesites criado com sucesso.")
+    
+    if os.path.exists("/etc/bloqueiodesites"):  # Verifica o diretório correto
+        baixar_lista_de_sites()
+        criar_arquivo_drop_domains()  # Chama a função para criar o arquivo drop-domains.rpz com base na lista baixada
+        configurar_apache()
+        adicionar_crontab()
+        print("Processo de bloqueio de sites e configuração do Apache finalizado com sucesso.")
