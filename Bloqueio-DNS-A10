@@ -33,7 +33,7 @@ def criar_arquivo_drop_domains():
                 for linha in site_file:
                     dominio = linha.strip()
                     if dominio:  # Ignorar linhas em branco
-                        drop_file.write(f"*{dominio} IN A CNAME rpz-drop\n")
+                        drop_file.write(f"*{dominio} IN A CNAME rpz-drop.\n")
         print(f"Arquivo drop-domains.rpz criado ou substituído com base na lista de sites: {arquivo_drop}")
     else:
         print(f"Erro: Arquivo de sites {arquivo_sites} não encontrado.")
